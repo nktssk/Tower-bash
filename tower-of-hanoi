@@ -1,0 +1,150 @@
+#!/bin/bash
+
+declare -a stackA stackB stackC
+
+stackA=(1 2 3 4 5 6 7 8)
+stackB=()
+stackC=()
+
+move_count=1
+
+print_stacks() {
+    local max_height=8
+    local row
+    for ((row=0; row<max_height; row++)); do
+        local a_val=" "
+        local b_val=" "
+        local c_val=" "
+        if [ ${#stackA[@]} -gt $row ]; then
+            a_val="${stackA[$row]}"
+        fi
+        if [ ${#stackB[@]} -gt $row ]; then
+            b_val="${stackB[$row]}"
+        fi
+        if [ ${#stackC[@]} -gt $row ]; then
+            c_val="${stackC[$row]}"
+        fi
+        # Выводим строку: значение в каждом стеке заключаем в вертикальные черты
+        printf "|%s|\t" "$a_val"
+        printf "|%s|\t" "$b_val"
+        printf "|%s|\n" "$c_val"
+    done
+    # Вывод нижней рамки и подписей стеков
+    printf "%s\t%s\t%s\n" "+-+" "+-+" "+-+"
+    printf "  A\t  B\t  C\n"
+}
+
+get_stack() {
+    local stack_letter="$1"
+    case "$stack_letter" in
+        A) echo "stackA" ;;
+        B) echo "stackB" ;;
+        C) echo "stackC" ;;
+         *) echo "" ;;
+    esac
+}
+
+check_win() {
+    local i
+    if [ ${#stackB[@]} -eq 8 ]; then
+        local win=1
+        for (( i=0; i<8; i++ )); do
+            if [ "${stackB[$i]}" -ne $((i+1)) ]; then
+                win=0
+                break
+            fi
+        done
+        if [ $win -eq 1 ]; then
+            echo "Поздравляем! Вы собрали башню в стеке B!"
+            exit 0
+        fi
+    fi
+    if [ ${#stackC[@]} -eq 8 ]; then
+        local win=1
+        for (( i=0; i<8; i++ )); do
+            if [ "${stackC[$i]}" -ne $((i+1)) ]; then
+                win=0
+                break
+            fi
+        done
+        if [ $win -eq 1 ]; then
+            echo "Поздравляем! Вы собрали башню в стеке C!"
+            exit 0
+        fi
+    fi
+}
+
+read_move() {
+    local input
+    while true; do
+        read -p "Ход № $move_count (откуда, куда): " input
+        input=$(echo "$input" | tr -d '[:space:]')
+        if [[ "$input" =~ ^[qQ]$ ]]; then
+            echo "Выход из игры."
+            exit 1
+        fi
+      
+        if [ ${#input} -ne 2 ]; then
+            echo "Ошибка ввода. Введите два символа, например, 'ab' или 'A c'."
+            continue
+        fi
+
+        local from="${input:0:1}"
+        local to="${input:1:1}"
+        from=$(echo "$from" | tr '[:lower:]' '[:upper:]')
+        to=$(echo "$to" | tr '[:lower:]' '[:upper:]')
+        
+        if [[ "$from" != "A" && "$from" != "B" && "$from" != "C" ]]; then
+            echo "Ошибка: неверное имя стека '$from'. Допустимые имена: A, B, C."
+            continue
+        fi
+        if [[ "$to" != "A" && "$to" != "B" && "$to" != "C" ]]; then
+            echo "Ошибка: неверное имя стека '$to'. Допустимые имена: A, B, C."
+            continue
+        fi
+        if [ "$from" == "$to" ]; then
+            echo "Ошибка: стек-отправитель и стек-получатель должны быть разными."
+            continue
+        fi
+        echo "$from $to"
+        break
+    done
+}
+
+while true; do
+    echo ""
+    print_stacks
+    
+    move=$(read_move)
+    
+    from=$(echo "$move" | awk '{print $1}')
+    to=$(echo "$move" | awk '{print $2}')
+    
+    src_stack=$(get_stack "$from")
+    dst_stack=$(get_stack "$to")
+    
+    eval "src_len=\${#${src_stack}[@]}"
+    if [ "$src_len" -eq 0 ]; then
+        echo "Ошибка: стек $from пуст, перемещение невозможно!"
+        continue
+    fi
+    
+    eval "disk=\${${src_stack}[0]}"
+    
+    eval "dst_len=\${#${dst_stack}[@]}"
+    if [ "$dst_len" -gt 0 ]; then
+        eval "dst_top=\${${dst_stack}[0]}"
+        if [ "$disk" -gt "$dst_top" ]; then
+            echo "Такое перемещение запрещено!"
+            continue
+        fi
+    fi
+    
+    eval "${src_stack}=(\"\${${src_stack}[@]:1}\")"
+    
+    eval "${dst_stack}=(\"\$disk\" \"\${${dst_stack}[@]}\")"
+    
+    move_count=$((move_count+1))
+
+    check_win
+done
